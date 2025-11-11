@@ -66,7 +66,7 @@ int main() {
     // - Pausa a execução para que o jogador possa ler os resultados antes da próxima rodada.
     for (int i = 0; i < MAX_TERRITORIOS; i++)
     {
-        printf("--- Cadastrando territorio %d ---\n", i);
+        printf("--- Cadastrando territorio %d ---\n", i + 1);
         printf("Nome do territorio: ");
         fgets(mundo[i].nome, TAM_STRING, stdin);
 
