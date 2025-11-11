@@ -37,6 +37,11 @@ struct Territorio {
 // Funções de interface com o usuário:
 // Funções de lógica principal do jogo:
 // Função utilitária:
+void limparBufferEntrada()
+{
+  int c;
+  while ((c = getchar()) != '\n' && c != EOF);
+}
 
 // --- Função Principal (main) ---
 // Função principal que orquestra o fluxo do jogo, chamando as outras funções em ordem.
@@ -49,7 +54,7 @@ int main() {
     // - Define a cor do jogador e sorteia sua missão secreta.
     struct Territorio mundo[MAX_TERRITORIOS];
 
-    printf("==============================\n");
+    printf("====================================================\n");
     printf("Vamos cadastrar os 5 territorios do nosso mundo.\n");
     // 2. Laço Principal do Jogo (Game Loop):
     // - Roda em um loop 'do-while' que continua até o jogador sair (opção 0) ou vencer.
@@ -74,12 +79,13 @@ int main() {
         printf("Numero de Tropas: ");
         scanf("%d", &mundo[i].numeroTropas);
         printf("\n");
+        limparBufferEntrada();
     }
 
     printf("Cadastro inicial concluido com sucesso!\n");
-    printf("==============================\n");
+    printf("====================================================\n");
     printf("\tMAPA DO MUNDO - ESTADO ATUAL\n");
-    printf("==============================\n");
+    printf("====================================================\n");
 
     for (int i = 0; i < MAX_TERRITORIOS; i++)
     {
