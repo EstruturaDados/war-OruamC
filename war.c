@@ -34,20 +34,36 @@ typedef struct Territorio {
     int tropas;
 } Territorio;
 
+// --- Estado Global do Jogador (uso pontual para verificar missão)
+static char g_playerCor[MAX_COR] = "";
+
+// --- Missoes disponíveis
+static const char* MISSOES[] = {
+    "Conquistar 1 territorio",
+    "Conquistar 3 territorios",
+    "Controlar todos os territorios",
+    "Eliminar a cor Vermelha",
+    "Ter pelo menos 20 tropas"
+};
+static const int TOTAL_MISSOES = (int)(sizeof(MISSOES) / sizeof(MISSOES[0]));
+
 // --- Protótipos das Funções ---
 // Declarações antecipadas de todas as funções que serão usadas no programa, organizadas por categoria.
 // Funções de setup e gerenciamento de memória
 Territorio* alocarMapa(int quantidade);
-void liberarMemoria(Territorio* mapa);
+void liberarMemoria(Territorio* mapa, char* missaoJogador);
 
 // Funções de interface com o usuário
 void cadastrarTerritorios(Territorio* mapa, int quantidade);
 void exibirMapa(const Territorio* mapa, int quantidade);
 int exibirMenuPrincipal();
+void exibirMissao(const char* missao);
 
 // Funções de lógica principal do jogo
 void atacar(Territorio* atacante, Territorio* defensor);
 void faseDeAtaque(Territorio* mapa, int quantidade);
+void atribuirMissao(char* destino, const char* missoes[], int totalMissoes);
+int verificarMissao(const char* missao, const Territorio* mapa, int tamanho);
 
 // Função utilitária
 void limparBufferEntrada()
@@ -84,6 +100,23 @@ int main() {
     printf("\nCadastro inicial concluido com sucesso!\n\n");
     exibirMapa(mapa, quantidade);
 
+    // Pergunta a cor do jogador (após cadastro, para ficar mais claro)
+    printf("Informe sua cor de exercito (ex: Azul, Vermelha): ");
+    if (!fgets(g_playerCor, sizeof(g_playerCor), stdin)) {
+        g_playerCor[0] = '\0';
+    }
+    g_playerCor[strcspn(g_playerCor, "\n")] = '\0';
+
+    // Atribui missão ao jogador (armazenada dinamicamente)
+    char* missaoJogador = (char*)malloc(256);
+    if (!missaoJogador) {
+        printf("Falha ao alocar memoria para a missao.\n");
+        liberarMemoria(mapa, NULL);
+        return 1;
+    }
+    atribuirMissao(missaoJogador, MISSOES, TOTAL_MISSOES);
+    exibirMissao(missaoJogador); // Exibir apenas uma vez no inicio
+
     // 2. Laço Principal do Jogo (Game Loop)
     int opcao;
     do {
@@ -91,6 +124,11 @@ int main() {
         switch (opcao) {
             case 1:
                 faseDeAtaque(mapa, quantidade);
+                // Verificar missão após a ação
+                if (verificarMissao(missaoJogador, mapa, quantidade)) {
+                    printf("\nParabens! Voce cumpriu sua missao:\n- %s\n", missaoJogador);
+                    opcao = 0; // encerra o jogo
+                }
                 break;
             case 0:
                 printf("Saindo do jogo...\n");
@@ -101,7 +139,7 @@ int main() {
     } while (opcao != 0);
 
     // 3. Limpeza
-    liberarMemoria(mapa);
+    liberarMemoria(mapa, missaoJogador);
     return 0;
 }
 
@@ -148,8 +186,9 @@ void cadastrarTerritorios(Territorio* mapa, int quantidade) {
 
 // liberarMemoria():
 // Libera a memória previamente alocada para o mapa usando free.
-void liberarMemoria(Territorio* mapa) {
+void liberarMemoria(Territorio* mapa, char* missaoJogador) {
     if (mapa) free(mapa);
+    if (missaoJogador) free(missaoJogador);
 }
 
 // exibirMenuPrincipal():
@@ -179,6 +218,15 @@ void exibirMapa(const Territorio* mapa, int quantidade) {
         printf("\t- Dominado por: Exercito %s\n", mapa[i].cor[0] ? mapa[i].cor : "(sem dono)");
         printf("\t- Tropas: %d\n\n", mapa[i].tropas);
     }
+}
+
+// exibirMissao():
+// Mostra a missão atual do jogador (exibida uma única vez no início)
+void exibirMissao(const char* missao) {
+    if (!missao || !*missao) return;
+    printf("====================================================\n");
+    printf("SUA MISSAO: %s\n", missao);
+    printf("====================================================\n");
 }
 
 // faseDeAtaque():
@@ -264,6 +312,61 @@ void atacar(Territorio* atacante, Territorio* defensor) {
         printf("Defensor resistiu ao ataque. Atacante perde 1 tropa.\n");
         if (atacante->tropas > 0) atacante->tropas -= 1;
     }
+}
+
+// atribuirMissao():
+// Sorteia uma missão do vetor e copia para o destino com strcpy.
+void atribuirMissao(char* destino, const char* missoes[], int totalMissoes) {
+    if (!destino || !missoes || totalMissoes <= 0) return;
+    int idx = rand() % totalMissoes;
+    // Destino deve ter sido alocado previamente com tamanho suficiente.
+    strcpy(destino, missoes[idx]);
+}
+
+// verificarMissao():
+// Lógica simples para checar a condição de vitória da missão atual.
+// Missões suportadas:
+// - "Conquistar 1 territorio" => jogador controla >= 1 territorio
+// - "Conquistar 3 territorios" => jogador controla >= 3 territorios
+// - "Controlar todos os territorios" => todos territórios com a cor do jogador
+// - "Eliminar a cor Vermelha" => nenhum território com cor "Vermelha"
+// - "Ter pelo menos 20 tropas" => soma de tropas do jogador >= 20
+int verificarMissao(const char* missao, const Territorio* mapa, int tamanho) {
+    if (!missao || !mapa || tamanho <= 0) return 0;
+
+    // Contagens úteis
+    int controlaQtd = 0;
+    int totalTropasJogador = 0;
+    int existeVermelha = 0;
+
+    for (int i = 0; i < tamanho; i++) {
+        if (g_playerCor[0] && mapa[i].cor[0] && strcmp(mapa[i].cor, g_playerCor) == 0) {
+            controlaQtd++;
+            totalTropasJogador += mapa[i].tropas;
+        }
+        if (mapa[i].cor[0] && strcmp(mapa[i].cor, "Vermelha") == 0) {
+            existeVermelha = 1;
+        }
+    }
+
+    if (strcmp(missao, "Conquistar 1 territorio") == 0) {
+        return controlaQtd >= 1;
+    }
+    if (strcmp(missao, "Conquistar 3 territorios") == 0) {
+        return controlaQtd >= 3;
+    }
+    if (strcmp(missao, "Controlar todos os territorios") == 0) {
+        return controlaQtd == tamanho;
+    }
+    if (strcmp(missao, "Eliminar a cor Vermelha") == 0) {
+        return existeVermelha == 0;
+    }
+    if (strcmp(missao, "Ter pelo menos 20 tropas") == 0) {
+        return totalTropasJogador >= 20;
+    }
+
+    // Missão desconhecida: considerar não cumprida
+    return 0;
 }
 
 // (Funções de missão/checagem de vitória podem ser adicionadas em etapas futuras.)
